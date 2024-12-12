@@ -1,0 +1,49 @@
+diff --git a/src/analysis.cc b/src/analysis.cc
+index 186868f..093e3e5 100644
+--- a/src/analysis.cc
++++ b/src/analysis.cc
+@@ -16,7 +16,7 @@
+ 
+ using Simulator::TensorMovementHint;
+ using Simulator::TensorLocation;
+-
++using namespace std;
+ extern std::string migration_policy_str;
+ extern std::string eviction_policy_str;
+ 
+@@ -279,8 +279,23 @@ void print_GPU_mem_really_in_use() {
+  */
+ void scheduling_movement_hints() {
+   // TODO: fill the data structure "std::vector<TensorMovementHint> movement_hints" with your own hints!
++  // make sure the movement hints are sorted, the simulator depends on this
+ 
++  // for every tensor, find the first Kernel use and 
++  std::ifstream file("x.prefetch"); // Open the file
++    if (!file.is_open()) {
++        std::cerr << "Error: Could not open the file.\n";
++    }
+ 
+-  // make sure the movement hints are sorted, the simulator depends on this
++    int a, b; // Variables to hold the parsed values
++    std::cout << "Parsed values from the file:\n";
++    while (file >> a >> b) { // Read two integers from each line
++        std::cout << "a = " << a << ", b = " << b << '\n';
++        // IN_GPU, NOT_KNOWN
++        TensorMovementHint hint(Simulator::NOT_KNOWN, Simulator::IN_GPU,a,tensor_list[b]);
++    movement_hints.push_back(hint);
++    }
++    file.close(); // Close the file
+   std::sort(movement_hints.begin(), movement_hints.end());
+ }
++
+diff --git a/src/configs/example.config b/src/configs/example.config
+index ba3da65..647e353 100644
+--- a/src/configs/example.config
++++ b/src/configs/example.config
+@@ -27,4 +27,4 @@
+     is_ideal                0
+     num_iteration           2
+     eviction_policy         LRU
+-    use_movement_hints      0
+\ No newline at end of file
++    use_movement_hints      1

@@ -1,0 +1,97 @@
+diff --git a/src/configs/example.config b/src/configs/example.config
+index ba3da65..7b0193e 100644
+--- a/src/configs/example.config
++++ b/src/configs/example.config
+@@ -26,5 +26,5 @@
+     is_simulation           1
+     is_ideal                0
+     num_iteration           2
+-    eviction_policy         LRU
++    eviction_policy         LRU_HOTNESS
+     use_movement_hints      0
+\ No newline at end of file
+diff --git a/src/simulationComponents.cc b/src/simulationComponents.cc
+index 4edbf8a..70466ef 100644
+--- a/src/simulationComponents.cc
++++ b/src/simulationComponents.cc
+@@ -200,6 +200,21 @@ void CPUPageTable::report() {
+ // CPUPageTable END ========================
+ 
+ // GPUPageTable BEGIN ========================
++void GPUPageTable::updateTensorHotness(Addr vpn) {
++    Tensor* tensor = searchTensorForPage(vpn);
++    if (hotness_tracker.find(tensor) == hotness_tracker.end()) {
++        hotness_tracker[tensor] = 0; // Initialize if not present
++    }
++    hotness_tracker[tensor]++;
++}
++
++int GPUPageTable::getTensorHotness(Tensor* tensor) {
++    if (hotness_tracker.find(tensor) == hotness_tracker.end()) {
++        return 0; // No accesses yet
++    }
++    return hotness_tracker[tensor];
++}
++
+ GPUPageTable::GPUPageTable(unsigned long total_memory_pages, EvcPolicy policy, int candidate_cnt) :
+     total_memory_pages(total_memory_pages), policy(policy), candidate_cnt(candidate_cnt) {
+   // phys_page_avail.reserve(total_memory_pages);
+@@ -274,6 +289,31 @@ tuple<Addr, GPUPageTable::GPUPageTableEntry, TensorLocation, GPUPageTable::Evict
+   // GPU memory is full, eviction required
+   tuple<Addr, GPUPageTable::GPUPageTableEntry, TensorLocation, EvictCandidate> evicted_entry;
+   switch (policy) {
++    case EvcPolicy::LRU_HOTNESS: { // New eviction policy
++        Addr evict_vpn = 0;
++        int min_hotness = INT_MAX;
++        for (const auto& [vpn, entry] : page_table) {
++            Tensor* tensor = searchTensorForPage(vpn);
++            int tensor_hotness = getTensorHotness(tensor);
++            if (tensor_hotness < min_hotness) {
++                min_hotness = tensor_hotness;
++                evict_vpn = vpn;
++            }
++        }
++
++        assert(evict_vpn != 0); // Ensure a valid page is selected
++
++        EvictCandidate& ret_candidate = get<3>(evicted_entry);
++        ret_candidate.vpn = evict_vpn;
++        ret_candidate.tensor = searchTensorForPage(evict_vpn);
++        ret_candidate.hotness = Eviction_P::Invalid;
++        ret_candidate.exact_hotness = min_hotness;
++
++        get<0>(evicted_entry) = evict_vpn;
++        get<1>(evicted_entry) = page_table[evict_vpn];
++        get<2>(evicted_entry) = IN_CPU; // Default location
++        break;
++    }
+     case EvcPolicy::RANDOM: {
+       // select random entry
+       int bucket, bucket_size;
+diff --git a/src/simulationComponents.h b/src/simulationComponents.h
+index e278c16..2e1b022 100644
+--- a/src/simulationComponents.h
++++ b/src/simulationComponents.h
+@@ -131,7 +131,7 @@ class CPUPageTable {
+ 
+ class GPUPageTable {
+   public:
+-    enum EvcPolicy { RANDOM, LRU, GUIDED, DEEPUM };
++    enum EvcPolicy { RANDOM, LRU, GUIDED, DEEPUM, LRU_HOTNESS};
+     class GPUPageTableEntry {
+       public:
+         Addr ppn;
+@@ -162,6 +162,12 @@ class GPUPageTable {
+       }
+     };
+ 
++    unordered_map<Tensor*, int> hotness_tracker; // Hotness tracker for tensors
++    
++    void updateTensorHotness(Addr vpn);
++
++    int getTensorHotness(Tensor* tensor);
++
+     GPUPageTable(unsigned long total_memory_pages, EvcPolicy policy, int candidate_cnt);
+ 
+     GPUPageTableEntry* getEntry(Addr vpn);
+
