@@ -173,7 +173,7 @@ void get_inactive_periods_time();
 
 
 //TODO:
-void scheduling_movement_hints();
+void scheduling_movement_hints(std::string file_name);
 
 
 // void print_GPU_mem_estimation();

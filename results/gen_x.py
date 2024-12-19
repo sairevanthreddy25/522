@@ -4,55 +4,7 @@ if(len(sys.argv)>1):
 else:
     file_base ='./Inceptionv3/sim_input/512'
 
-
-
-
-
 import matplotlib.pyplot as plt
-
-def plot_tensor_size_vs_lifetime(tensor_data, output_file):
-    """
-    Plots tensor size vs. lifetime and saves the plot to a JPEG file.
-
-    Parameters:
-        tensor_data (list of tuples): A list where each tuple is (tensor_size, lifetime).
-        output_file (str): Path to save the plot as a JPEG file.
-    """
-    # Extract tensor sizes and lifetimes
-    tensor_sizes = [data[0] for data in tensor_data]
-    lifetimes = [data[1] for data in tensor_data]
-
-    # Create the plot
-    plt.figure(figsize=(10, 6))
-    plt.scatter(lifetimes, tensor_sizes, alpha=0.6, edgecolor='k')
-    plt.title("Tensor Size vs. Lifetime")
-    plt.xlabel("Lifetime (ms)")
-    plt.ylabel("Tensor Size (Bytes)")
-    plt.grid(True, linestyle='--', alpha=0.7)
-
-    # Save the plot to a JPEG file
-    plt.savefig(output_file, format='jpeg', dpi=300)
-    plt.close()
-
-
-def plot_inactivity_percentages(inactivity_percentages, output_filename='inactivity_percentages_plot.jpg'):
-    # Sort the inactivity percentages
-    sorted_inactivity_percentages = sorted(inactivity_percentages)
-
-    # Plotting
-    plt.figure(figsize=(10, 6))
-    plt.bar(range(len(sorted_inactivity_percentages)), sorted_inactivity_percentages, color='lightcoral')
-    plt.xlabel('Tensor Index')
-    plt.ylabel('Inactivity Percentage (%)')
-    plt.title('Sorted Inactivity Percentages of Tensors')
-
-    # Save the plot to a JPEG file
-    plt.savefig(output_filename, format='jpg')
-
-    # Optionally, you can show the plot as well
-    plt.show()
-
-
 
 
 
@@ -117,33 +69,8 @@ for k in k_info:
     k_info[k]['mem'] = p_mem
     max_mem = max(max_mem,p_mem)
     accum_time+=k_info[k]['time']
-    # if(max_mem == p_mem):
-    #     print(k)
 
 
-
-
-print(file_base,ideal_max/pow(2,30))
-
-
-tensor_data = []
-for i in t_info:
-    tensor_data.append((t_info[i]['mem'],t_info[i]['live']['end']-t_info[i]['live']['start']))
-
-plot_tensor_size_vs_lifetime(tensor_data, file_base+'.jpeg')
-
-
-
-inactives = []
-for i in t_info:
-    perc = t_info[i]['live']['end']-t_info[i]['live']['start']-t_info[i]['live']['active']
-    perc = perc*100/(t_info[i]['live']['end']-t_info[i]['live']['start'])
-    inactives.append(perc)
-    # if(inactives[-1]<0):
-    #     inactives[-1]=0
-
-plot_inactivity_percentages(inactives,file_base+'_inactive.jpeg')
-exit()
 # Generating prefetch information...
 prefetch_={}
 for t in t_info:
@@ -153,7 +80,7 @@ for t in t_info:
     if(t_info[t]['tglob']=='false'):
         prefetch_[k].append(t)
 
-with open('x.prefetch','w') as wf:
+with open(file_base+'.hint','w') as wf:
     for i in sorted(prefetch_):
         wf.write((str(i)+ ' '+prefetch_[i][0])+'\n')
 

@@ -277,12 +277,12 @@ void print_GPU_mem_really_in_use() {
 /**
  * @brief fill this function to schedule your movement hints
  */
-void scheduling_movement_hints() {
+void scheduling_movement_hints(std::string file_name) {
   // TODO: fill the data structure "std::vector<TensorMovementHint> movement_hints" with your own hints!
   // make sure the movement hints are sorted, the simulator depends on this
 
   // for every tensor, find the first Kernel use and 
-  std::ifstream file("x.prefetch"); // Open the file
+  std::ifstream file(file_name); // Open the file
     if (!file.is_open()) {
         std::cerr << "Error: Could not open the file.\n";
     }

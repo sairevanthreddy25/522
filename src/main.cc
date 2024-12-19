@@ -504,7 +504,7 @@ int main(int argc, char *argv[]) {
         delete r;
 
         if (use_movement_hints)
-            scheduling_movement_hints();
+            scheduling_movement_hints(tensor_info_file.substr(0, tensor_info_file.size() - 11) + ".hint");
 
         // nprintf("Average interval time: %f ms\n", inactive_periods_list[(inactive_periods_list.size() - 1) / 2]->time_estimated);
         iprintf("Checking output stat files\n", "");
