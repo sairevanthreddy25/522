@@ -312,9 +312,9 @@ tuple<Addr, GPUPageTable::GPUPageTableEntry, TensorLocation, GPUPageTable::Evict
       get<0>(evicted_entry) = ret_candidate.vpn;
       get<1>(evicted_entry) = page_table.at(ret_candidate.vpn);
      if(ret_candidate.tensor->getHotness() > 100)
-	     get<2>(evicted_entry) = IN_SSD;
-     else
 	     get<2>(evicted_entry) = IN_CPU;
+     else
+	     get<2>(evicted_entry) = IN_SSD;
       
       // get<2>(evicted_entry) = (rand() & 1) ? IN_SSD : IN_CPU;
       // get<2>(evicted_entry) = IN_CPU;
