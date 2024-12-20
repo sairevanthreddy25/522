@@ -55,6 +55,18 @@ std::vector<InactivePeriod *> offloaded_local_intervals;
 
 string Tensor::name() const { return "tensor" + std::to_string(tensor_id); }
 
+void Tensor::incrementHotness() {
+  ++hotness;
+}
+
+long long Tensor::getHotness() {
+  return hotness;
+}
+
+void Tensor::resetHotness() {
+  hotness = 0;
+}
+
 bool Tensor::is_alive(int current_kernel) const {
   return is_global_weight || (live_interval.second == -1 ? current_kernel == live_interval.first
                                                          : current_kernel >= live_interval.first &&

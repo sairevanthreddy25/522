@@ -184,6 +184,7 @@ class GPUPageTable {
 
     void LRUPin(Addr addr);
     void LRUUnpin(Addr addr);
+    float calculateAverageHotness() const;
 
     friend class System;
 

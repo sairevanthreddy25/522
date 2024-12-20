@@ -311,8 +311,8 @@ tuple<Addr, GPUPageTable::GPUPageTableEntry, TensorLocation, GPUPageTable::Evict
 
       get<0>(evicted_entry) = ret_candidate.vpn;
       get<1>(evicted_entry) = page_table.at(ret_candidate.vpn);
-      // get<2>(evicted_entry) = (rand() & 1) ? IN_SSD : IN_CPU;
-      get<2>(evicted_entry) = IN_CPU;
+      get<2>(evicted_entry) = (rand() & 1) ? IN_SSD : IN_CPU;
+      // get<2>(evicted_entry) = IN_CPU;
       break;
     }
     case EvcPolicy::GUIDED: {
@@ -431,44 +431,110 @@ Tensor *GPUPageTable::searchTensorForPage(Addr vpn) {
   return tensor;
 }
 
+float GPUPageTable::calculateAverageHotness() const {
+    if (lru_addrs.empty())
+        return 0;
+
+    long long total_hotness = 0;
+    for (const auto& addr : lru_addrs) {
+        total_hotness += searchTensorForPage(addr)->getHotness();
+    }
+
+    return static_cast<float>(total_hotness) / lru_addrs.size();
+}
+
+
 // TODO: change this
 void GPUPageTable::LRUPin(Addr addr) {
   if (lru_table.find(addr) == lru_table.end())
-    return;
-  lru_addrs.erase(lru_table[addr]);
-  lru_addrs.push_front(addr);
-  lru_table[addr] = lru_addrs.begin();
-  // sanity check
-  assert(lru_table.size() == page_table.size());
+        return;
+
+    // Get the hotness value for the page
+    int hotness = searchTensorForPage(addr)->getHotness();
+
+    // Erase the current entry from the list
+    lru_addrs.erase(lru_table[addr]);
+
+    // Find the appropriate position in the list based on hotness
+    auto it = lru_addrs.begin();
+    for (; it != lru_addrs.end(); ++it) {
+        if (searchTensorForPage(*it)->getHotness() <= hotness) {
+            break;
+        }
+    }
+
+    // Insert the entry at the calculated position
+    lru_addrs.insert(it, addr);
+
+    // Update the lru_table with the new iterator position
+    lru_table[addr] = std::prev(it);
+
+    // Sanity check
+    assert(lru_table.size() == page_table.size());
 }
 
 // TODO: change this
 void GPUPageTable::LRUUnpin(Addr addr) {
   if (lru_table.find(addr) == lru_table.end())
-    return;
-  lru_addrs.erase(lru_table[addr]);
-  lru_addrs.push_back(addr);
-  lru_table[addr] = --lru_addrs.end();
-  // sanity check
-  assert(lru_table.size() == page_table.size());
+        return;
+
+    // Get the hotness value for the page
+    int hotness = searchTensorForPage(addr)->getHotness();
+
+    // Erase the current entry from the list
+    lru_addrs.erase(lru_table[addr]);
+
+    // Find the appropriate position in the list based on hotness
+    auto it = lru_addrs.begin();
+    for (; it != lru_addrs.end(); ++it) {
+        if (searchTensorForPage(*it)->getHotness() <= hotness) {
+            break;
+        }
+    }
+
+    // Insert the entry at the calculated position
+    lru_addrs.insert(it, addr);
+
+    // Update the lru_table with the new iterator position
+    lru_table[addr] = std::prev(it);
+
+    // Sanity check
+    assert(lru_table.size() == page_table.size());
 }
 
 void GPUPageTable::LRUAccess(Addr addr) {
   assert(addr < memory_offset_intermediate + memory_offset_weights);
-  auto lru_item = lru_table.find(addr);
-  bool change_suggestion = false;
-  if (lru_item != lru_table.end()) {
-    if (lru_item->second == sim_sys->getSuggestedLRUBase())
-      change_suggestion = true;
-    lru_addrs.erase(lru_item->second);
-  }
-  lru_addrs.push_back(addr);
-  lru_table[addr] = --lru_addrs.end();
-  if (change_suggestion)
-    sim_sys->storeSuggestedLRUBase(lru_addrs.begin());
-  // sanity check
-  assert(page_table.find(addr) != page_table.end());
-  assert(lru_table.size() == page_table.size());
+    auto lru_item = lru_table.find(addr);
+    bool change_suggestion = false;
+    if (lru_item != lru_table.end()) {
+        if (lru_item->second == sim_sys->getSuggestedLRUBase())
+            change_suggestion = true;
+        lru_addrs.erase(lru_item->second);
+    }
+
+    // Get the hotness value for the page
+    int hotness = searchTensorForPage(addr)->getHotness();
+
+    // Find the appropriate position in the list based on hotness
+    auto it = lru_addrs.begin();
+    for (; it != lru_addrs.end(); ++it) {
+        if (searchTensorForPage(*it)->getHotness() < hotness) {
+            break;
+        }
+    }
+
+    // Insert the entry at the calculated position
+    lru_addrs.insert(it, addr);
+
+    // Update the lru_table with the new iterator position
+    lru_table[addr] = std::prev(it);
+
+    if (change_suggestion)
+        sim_sys->storeSuggestedLRUBase(lru_addrs.begin());
+
+    // Sanity check
+    assert(page_table.find(addr) != page_table.end());
+    assert(lru_table.size() == page_table.size());
 }
 
 void GPUPageTable::LRURemove(Addr addr) {

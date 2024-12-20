@@ -361,8 +361,10 @@ void KernelBeginEvent::execute(vector<Event *> &created_events) {
     nprintf("  Kernel%d req tensors not yet arrived\n", kernel->kernel_id);
     // get page fault info and start transfer required tensors
     PageFaultInfo page_fault_info(kernel);
-    for (Tensor *tensor : required_input_tensors)
+    for (Tensor *tensor : required_input_tensors){
       page_fault_info += transferTensorToGPU(tensor, true);
+      tensor->incrementHotness();
+    }
     for (Tensor *tensor : required_output_tensors)
       page_fault_info += transferTensorToGPU(tensor, false);
     sim_sys->CPU_PT.AddInTransferPages(required_tensors);
@@ -556,6 +558,12 @@ pair<int, int> BatcherEvent::processFetch(Addr start_addr, TensorLocation src, b
   // record and afterprocess everything
   recordFetch(src, alloc_info.first);
   CPUPageTable::CPUPageTableEntry *CPU_PTE = sim_sys->CPU_PT.getEntry(start_addr);
+
+  Tensor *tensor = sim_sys->GPU_PT.searchTensorForPage(start_addr);
+  if(tensor) {
+    tensor->incrementHotness();
+  }
+
   assert(CPU_PTE);
   // PCIe transfer instant
   sim_sys->GPU_PT.markArrivedPTE(start_addr);
@@ -581,6 +589,11 @@ pair<int, int> BatcherEvent::processAlloc(Addr start_addr, bool is_pf) {
     }
     sim_sys->GPU_PT.markArrivedPTE(start_addr);
     sim_sys->CPU_PT.markArrivedPTE(start_addr);
+
+    Tensor *tensor = sim_sys->GPU_PT.searchTensorForPage(start_addr);
+    if(tensor) {
+      tensor->incrementHotness();
+    }
   } else {
     // redefine PF as real PF, even if it comes from prefetch/prealloc
     is_pf = is_pf || sim_sys->pageIsRequired(start_addr);
@@ -618,6 +631,11 @@ pair<int, int> BatcherEvent::processAlloc(Addr start_addr, bool is_pf) {
     assert(sim_sys->GPU_PT.allocPTE(start_addr));
     sim_sys->GPU_PT.markArrivedPTE(start_addr);
     sim_sys->CPU_PT.markArrivedPTE(start_addr);
+
+    Tensor *tensor = sim_sys->GPU_PT.searchTensorForPage(start_addr);
+    if(tensor) {
+      tensor->incrementHotness();
+    }
 
     // sim_stat->addEvcSelection(sim_sys->getCurrentIteration(),
     //                           scheduled_time,

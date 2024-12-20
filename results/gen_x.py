@@ -4,7 +4,7 @@ if(len(sys.argv)>1):
 else:
     file_base ='./Inceptionv3/sim_input/512'
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 

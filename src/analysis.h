@@ -62,12 +62,16 @@ class Tensor {
         void print() const;
         void print_liveness();
         void print_inactive_periods();
-
+        void incrementHotness();
+        long long getHotness();
+        void resetHotness();
+        
         int tensor_id;
         long long size_in_byte;  //Aligned with 4KB
         long long raw_size_byte;
         long long address_offset;
         bool is_global_weight;   // If the tensor is a global tensor.
+        long long hotness = 0;
 
         // Following is the assess pattern information, which is not automatically filled with the model graph input.
 
