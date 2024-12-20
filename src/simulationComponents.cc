@@ -311,7 +311,12 @@ tuple<Addr, GPUPageTable::GPUPageTableEntry, TensorLocation, GPUPageTable::Evict
 
       get<0>(evicted_entry) = ret_candidate.vpn;
       get<1>(evicted_entry) = page_table.at(ret_candidate.vpn);
-      get<2>(evicted_entry) = (rand() & 1) ? IN_SSD : IN_CPU;
+     if(ret_candidate.tensor->getHotness() > 100)
+	     get<2>(evicted_entry) = IN_SSD;
+     else
+	     get<2>(evicted_entry) = IN_CPU;
+      
+      // get<2>(evicted_entry) = (rand() & 1) ? IN_SSD : IN_CPU;
       // get<2>(evicted_entry) = IN_CPU;
       break;
     }
@@ -431,17 +436,6 @@ Tensor *GPUPageTable::searchTensorForPage(Addr vpn) {
   return tensor;
 }
 
-float GPUPageTable::calculateAverageHotness() const {
-    if (lru_addrs.empty())
-        return 0;
-
-    long long total_hotness = 0;
-    for (const auto& addr : lru_addrs) {
-        total_hotness += searchTensorForPage(addr)->getHotness();
-    }
-
-    return static_cast<float>(total_hotness) / lru_addrs.size();
-}
 
 
 // TODO: change this
